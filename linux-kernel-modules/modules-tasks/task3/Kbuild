@@ -1,0 +1,4 @@
+ccflags-y = -Wno-unused-function -Wno-unused-label -Wno-unused-variable
+
+obj-m = module_task3.o
+module_task3-y = mod1.o mod2.o
