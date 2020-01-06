@@ -1,0 +1,273 @@
+From 47955241f0c7815d0a48435efe39dabdef2f12e5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Tomasz=20=C5=BByjewski?= <tomasz.zyjewski@3mdeb.com>
+Date: Sat, 4 Jan 2020 18:39:05 +0100
+Subject: [PATCH] my_cdev: add custom character device driver
+
+---
+ drivers/Kconfig           |   2 +
+ drivers/Makefile          |   2 +
+ drivers/my_cdev/Kconfig   |  11 +++
+ drivers/my_cdev/Makefile  |   1 +
+ drivers/my_cdev/my_cdev.c | 185 ++++++++++++++++++++++++++++++++++++++
+ include/my_cdev.h         |  10 +++
+ 6 files changed, 211 insertions(+)
+ create mode 100644 drivers/my_cdev/Kconfig
+ create mode 100644 drivers/my_cdev/Makefile
+ create mode 100644 drivers/my_cdev/my_cdev.c
+ create mode 100644 include/my_cdev.h
+
+diff --git a/drivers/Kconfig b/drivers/Kconfig
+index d393376de506..96584d46cb8b 100644
+--- a/drivers/Kconfig
++++ b/drivers/Kconfig
+@@ -204,4 +204,6 @@ source "drivers/hwtracing/intel_th/Kconfig"
+ 
+ source "drivers/fpga/Kconfig"
+ 
++source "drivers/my_cdev/Kconfig"
++
+ endmenu
+diff --git a/drivers/Makefile b/drivers/Makefile
+index 982b9753338e..654af3c811fb 100644
+--- a/drivers/Makefile
++++ b/drivers/Makefile
+@@ -174,3 +174,5 @@ obj-$(CONFIG_STM)		+= hwtracing/stm/
+ obj-$(CONFIG_ANDROID)		+= android/
+ obj-$(CONFIG_NVMEM)		+= nvmem/
+ obj-$(CONFIG_FPGA)		+= fpga/
++
++obj-$(CONFIG_MY_CDEV)		+= my_cdev/
+diff --git a/drivers/my_cdev/Kconfig b/drivers/my_cdev/Kconfig
+new file mode 100644
+index 000000000000..9d6b636e697a
+--- /dev/null
++++ b/drivers/my_cdev/Kconfig
+@@ -0,0 +1,11 @@
++
++menu "MY_CDEV driver"
++
++config MY_CDEV
++	tristate "my_cdev driver"
++	depends on ARM
++	default m
++	help
++	  Say Y here if you want add created driver
++
++endmenu
+diff --git a/drivers/my_cdev/Makefile b/drivers/my_cdev/Makefile
+new file mode 100644
+index 000000000000..92e2fb645a6f
+--- /dev/null
++++ b/drivers/my_cdev/Makefile
+@@ -0,0 +1 @@
++obj-$(CONFIG_MY_CDEV) +=my_cdev.o
+diff --git a/drivers/my_cdev/my_cdev.c b/drivers/my_cdev/my_cdev.c
+new file mode 100644
+index 000000000000..877ba6b5ec70
+--- /dev/null
++++ b/drivers/my_cdev/my_cdev.c
+@@ -0,0 +1,185 @@
++/*
++ * Character device drivers lab
++ *
++ * All tasks
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/fs.h>
++#include <linux/cdev.h>
++#include <linux/uaccess.h>
++#include <linux/sched.h>
++#include <linux/wait.h>
++
++#include "../include/my_cdev.h"
++
++MODULE_DESCRIPTION("SO2 character device");
++MODULE_AUTHOR("SO2");
++MODULE_LICENSE("GPL");
++
++#define LOG_LEVEL	KERN_DEBUG
++
++#define MY_MAJOR		42
++#define MY_MINOR		0
++#define NUM_MINORS		1
++#define MODULE_NAME		"my_cdev"
++#define MESSAGE			"Welcome!\n"
++#define IOCTL_MESSAGE		"Hello ioctl!"
++
++#ifndef BUFSIZ
++#define BUFSIZ		4096
++#endif
++
++
++struct my_device_data {
++	/* TODO 2: add cdev member
++	struct cdev cdev;*/
++	/* TODO 4: add buffer with BUFSIZ elements
++	char buffer[BUFSIZ];
++	size_t size;*/
++	/* TODO 3: add atomic_t access variable to keep track if file is opened
++	atomic_t access;*/
++};
++
++struct my_device_data devs[NUM_MINORS];
++
++static int my_cdev_open(struct inode *inode, struct file *file)
++{
++	struct my_device_data *data;
++
++	/* TODO 3: inode->i_cdev contains our cdev struct, use container_of to obtain a pointer to my_device_data
++	data = container_of(inode->i_cdev, struct my_device_data, cdev);*/
++
++	file->private_data = data;
++
++	/* TODO 3: return immediately if access is != 0, use atomic_cmpxchg
++	if (atomic_cmpxchg(&data->access, 0, 1) != 0)
++		return -EBUSY;*/
++
++	set_current_state(TASK_INTERRUPTIBLE);
++	schedule_timeout(10);
++
++	/* TODO 2: printk info that device was open
++	printk(KERN_INFO "my_module: Device opened.\n");*/
++
++	return 0;
++}
++
++static int my_cdev_release(struct inode *inode, struct file *file)
++{
++	struct my_device_data *data = (struct my_device_data *) file->private_data;
++	/* TODO 2: printk info that device was release
++	printk(KERN_INFO "my_module: Device released.\n");*/
++
++	/* TODO 3: reset access variable to 0, use atomic_set
++	atomic_set(&data->access, 0);*/
++	return 0;
++}
++
++static ssize_t my_cdev_read(struct file *file,
++		char __user *user_buffer,
++		size_t size, loff_t *offset)
++{
++	struct my_device_data *data =
++		(struct my_device_data *) file->private_data;
++	size_t to_read;
++
++	/* TODO 4: Copy data->buffer to user_buffer, use copy_to_user
++	to_read = (size > data->size - *offset) ? (data->size - *offset) : size;
++	if (copy_to_user(user_buffer, data->buffer + *offset, to_read) != 0)
++		return -EFAULT;
++	*offset += to_read;*/
++
++	return to_read;
++}
++
++static ssize_t my_cdev_write(struct file *file,
++		const char __user *user_buffer,
++		size_t size, loff_t *offset)
++{
++	struct my_device_data *data =
++		(struct my_device_data *) file->private_data;
++
++
++	/* TODO 5: copy user_buffer to data->buffer, use copy_from_user
++	size = (*offset + size > BUFSIZ) ? (BUFSIZ - *offset) : size;
++	if (copy_from_user(data->buffer + *offset, user_buffer, size) != 0)
++		return -EFAULT;
++	*offset += size;
++	data->size = *offset;*/
++
++	return size;
++}
++
++static long my_cdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
++{
++	int ret = 0;
++
++	switch (cmd) {
++	/* TODO 6: if cmd = MY_IOCTL_PRINT, display IOCTL_MESSAGE
++	case MY_IOCTL_PRINT:
++		printk(LOG_LEVEL "%s\n", IOCTL_MESSAGE);
++		break;*/
++	default:
++		ret = -EINVAL;
++	}
++
++	return ret;
++}
++
++static const struct file_operations my_fops = {
++	.owner = THIS_MODULE,
++/* TODO 2: add open, release, read, write functions
++	.open = my_cdev_open,
++	.release = my_cdev_release,
++	.read = my_cdev_read,
++	.write = my_cdev_write,
++	.unlocked_ioctl = my_cdev_ioctl,*/
++};
++
++static int my_cdev_init(void)
++{
++	int err;
++	int i;
++
++        /* TODO 1: register char device region for MY_MAJOR and NUM_MINORS starting at MY_MINOR
++	err = register_chrdev_region(MKDEV(MY_MAJOR, MY_MINOR),
++			NUM_MINORS, MODULE_NAME);
++	if (err != 0) {
++		pr_info("register_chrdev_region");
++		return err;
++	}
++	printk(KERN_INFO "my_module: Module registered.\n");*/
++
++	for (i = 0; i < NUM_MINORS; i++) {
++		/*TODO 4: initialize buffer with MESSAGE string
++		memcpy(devs[i].buffer, MESSAGE, sizeof(MESSAGE));
++		devs[i].size = sizeof(MESSAGE);*/
++		/* TODO 3: set access variable to 0, use atomic_set
++		atomic_set(&devs[i].access, 0);*/
++		/* TODO 2: init and add cdev to kernel core
++		cdev_init(&devs[i].cdev, &my_fops);
++		cdev_add(&devs[i].cdev, MKDEV(MY_MAJOR, i), 1);*/
++	}
++
++	return 0;
++}
++
++static void my_cdev_exit(void)
++{
++	int i;
++
++	for (i = 0; i < NUM_MINORS; i++) {
++		/* TODO 2: delete cdev from kernel core
++		cdev_del(&devs[i].cdev);*/
++	}
++
++	/* TODO 1: unregister char device region, for MY_MAJOR and NUM_MINORS starting at MY_MINOR
++	printk(KERN_INFO "my_module: Module unregistered.\n");
++	unregister_chrdev_region(MKDEV(MY_MAJOR, MY_MINOR), NUM_MINORS);*/
++}
++
++module_init(my_cdev_init);
++module_exit(my_cdev_exit);
+diff --git a/include/my_cdev.h b/include/my_cdev.h
+new file mode 100644
+index 000000000000..4ed8cd0ef004
+--- /dev/null
++++ b/include/my_cdev.h
+@@ -0,0 +1,10 @@
++#ifndef __PSOCDEV_H__
++#define __PSOCDEV_H__		1
++
++#include <asm/ioctl.h>
++
++#define BUFFER_SIZE		256
++
++#define MY_IOCTL_PRINT		_IOC(_IOC_NONE,  'k', 1, 0)
++
++#endif
+-- 
+2.17.1
+
