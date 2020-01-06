@@ -43,6 +43,7 @@ static int my_cdev_open(struct inode *inode, struct file *file)
 {
 	struct my_device_data *data;
 
+	data = container_of(inode->i_cdev, struct my_device_data, cdev);
 	file->private_data = data;
 
 	set_current_state(TASK_INTERRUPTIBLE);
@@ -61,39 +62,6 @@ static int my_cdev_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t my_cdev_read(struct file *file,
-		char __user *user_buffer,
-		size_t size, loff_t *offset)
-{
-	struct my_device_data *data =
-		(struct my_device_data *) file->private_data;
-	size_t to_read;
-
-	return to_read;
-}
-
-static ssize_t my_cdev_write(struct file *file,
-		const char __user *user_buffer,
-		size_t size, loff_t *offset)
-{
-	struct my_device_data *data =
-		(struct my_device_data *) file->private_data;
-
-
-	return size;
-}
-
-static long my_cdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-{
-	int ret = 0;
-
-	switch (cmd) {
-	default:
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
 
 static const struct file_operations my_fops = {
 	.owner = THIS_MODULE,

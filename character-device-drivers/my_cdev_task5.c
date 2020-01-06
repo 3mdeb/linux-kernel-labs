@@ -37,7 +37,6 @@ struct my_device_data {
 	struct cdev cdev;
 	char buffer[BUFSIZ];
 	size_t size;
-	atomic_t access;
 };
 
 struct my_device_data devs[NUM_MINORS];
@@ -49,9 +48,6 @@ static int my_cdev_open(struct inode *inode, struct file *file)
 	data = container_of(inode->i_cdev, struct my_device_data, cdev);
 
 	file->private_data = data;
-
-	if (atomic_cmpxchg(&data->access, 0, 1) != 0)
-		return -EBUSY;
 
 	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout(10);
@@ -66,7 +62,6 @@ static int my_cdev_release(struct inode *inode, struct file *file)
 	struct my_device_data *data = (struct my_device_data *) file->private_data;
 	printk(KERN_INFO "my_module: Device released.\n");
 
-	atomic_set(&data->access, 0);
 	return 0;
 }
 
@@ -84,28 +79,6 @@ static ssize_t my_cdev_read(struct file *file,
 	*offset += to_read;
 
 	return to_read;
-}
-
-static ssize_t my_cdev_write(struct file *file,
-		const char __user *user_buffer,
-		size_t size, loff_t *offset)
-{
-	struct my_device_data *data =
-		(struct my_device_data *) file->private_data;
-
-	return size;
-}
-
-static long my_cdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-{
-	int ret = 0;
-
-	switch (cmd) {
-	default:
-		ret = -EINVAL;
-	}
-
-	return ret;
 }
 
 static const struct file_operations my_fops = {
@@ -131,7 +104,6 @@ static int my_cdev_init(void)
 	for (i = 0; i < NUM_MINORS; i++) {
 		memcpy(devs[i].buffer, MESSAGE, sizeof(MESSAGE));
 		devs[i].size = sizeof(MESSAGE);
-		atomic_set(&devs[i].access, 0);
 		cdev_init(&devs[i].cdev, &my_fops);
 		cdev_add(&devs[i].cdev, MKDEV(MY_MAJOR, i), 1);
 	}
