@@ -1,4 +1,4 @@
-KDIR = $(shell pwd)/../..
+KDIR = /home/user/ites/linux/linux-imx
 
 kbuild:
 	make -C $(KDIR) M=`pwd`
