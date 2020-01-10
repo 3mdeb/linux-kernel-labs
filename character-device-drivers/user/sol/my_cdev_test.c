@@ -14,13 +14,13 @@ int main(int argc, char **argv)
 	int fd;
 	char buffer[BUFFER_SIZE];
 
-	fd = open(/* TODO */);
+	fd = open(DEVICE_PATH, O_RDONLY);
 	if (fd < 0) {
 		perror("open failed");
 		exit(EXIT_FAILURE);
 	}
 
-	if (ioctl(/* TODO *//) < 0) {
+	if (ioctl(fd, MY_IOCTL_PRINT, 0) < 0) {
 		perror("ioctl failed");
 		exit(EXIT_FAILURE);
 	}
